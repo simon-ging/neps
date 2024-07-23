@@ -281,7 +281,11 @@ class Trial:
                 )
             elif not empty_file(disk.error_file):
                 error_tb = deserialize(disk.error_file)
-                result = deserialize(disk.result_file)
+                if Path(disk.result_file).is_file():
+                    result = deserialize(disk.result_file)
+                else:
+                    logger.error(f"Error file found but no result file {disk.result_file}", exc_info=True)
+                    result = {}
                 report = ErrorReport(
                     # NOTE: Not sure we can easily get the original exception type,
                     # once serialized

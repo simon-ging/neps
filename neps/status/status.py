@@ -47,6 +47,9 @@ def get_summary_dict(
         trials_by_state[Trial.State.SUCCESS],
         trials_by_state[Trial.State.ERROR],
     ):
+        if trial.report is None:
+            breakpoint()
+            continue
         assert trial.report is not None
         _result_for_stats = _ConfigResultForStats(
             trial.id,

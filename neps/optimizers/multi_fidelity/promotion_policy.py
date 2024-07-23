@@ -62,6 +62,13 @@ class SyncPromotionPolicy(PromotionPolicy):
         self.rung_promotions = {rung: [] for rung in self.config_map.keys()}
         total_rung_evals = 0
         for rung in reversed(sorted(self.config_map.keys())):
+            # turn "error" string into NaN to avoid casting errors
+            if len(self.rung_members_performance[rung]) > 0:
+                self.rung_members_performance[rung][
+                    self.rung_members_performance[rung] == "error"] = np.nan
+                # turn numpy array dtype 'O' back to float
+                self.rung_members_performance[rung] = self.rung_members_performance[rung].astype(float)
+
             total_rung_evals += len(self.rung_members[rung])
             if (
                 total_rung_evals >= self.config_map[rung]
