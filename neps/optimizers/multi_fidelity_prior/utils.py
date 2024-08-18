@@ -153,7 +153,13 @@ def calc_total_resources_spent(observed_configs: pd.DataFrame, rung_map: dict) -
     rungs_used = [
         observed_configs.at[i, "rung"]
         for i in range(len(observed_configs))
-        if not np.isnan(observed_configs.at[i, "perf"])
+
+        # ---------- CHANGE: Ignore members with "error" string value
+        if not observed_configs.at[i, "perf"] == "error"
+            and not np.isnan(observed_configs.at[i, "perf"])
+        # REMOVED: if not np.isnan(observed_configs.at[i, "perf"])
+        # ---------- END CHANGE
+
     ]
     total_resources = sum(rung_map[r] for r in rungs_used)
     return total_resources
