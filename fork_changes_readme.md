@@ -11,6 +11,7 @@ https://github.com/simon-ging/neps/commit/4ed0a2f824be478294c18ce69c975f0f0e0670
 neps/optimizers/multi_fidelity/promotion_policy.py L65
 
 ```python
+ADD
 if len(self.rung_members_performance[rung]) > 0:
     self.rung_members_performance[rung][
         self.rung_members_performance[rung] == "error"] = np.nan
@@ -34,6 +35,9 @@ if not observed_configs.at[i, "perf"] == "error"
 
 same commit as above
 
+seems in the latest version they renamed result to report, and added the same check (if file doesn't exist
+the value will be None instead of crashing the entire thing)
+
 neps/runtime.py L284
 
 ```python
@@ -47,6 +51,8 @@ else:
    logger.error(f"Error file found but no result file {disk.result_file}", exc_info=True)
     result = {}
 ```
+
+## added debugging utility
 
 neps/status/status.py L50
 
