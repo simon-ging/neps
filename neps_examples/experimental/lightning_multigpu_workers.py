@@ -75,63 +75,28 @@ logger = logging.getLogger(__name__)
 NUM_GPUS = 2
 
 
-def ensure_neps_config(base_dir):
-    # for debugging only. in a normal use case this file is created manually
-    base_dir = Path(base_dir)
-    yaml_content = """
-    pipeline_space:
-        max_epochs_for_scheduler: 9
-        learning_rate:
-            lower: 1e-5
-            upper: 1e-3
-            log: true
-            default: 1e-4
-        weight_decay:
-            lower: 1e-5
-            upper: 2e-1
-            log: true
-            default: 1e-2
-        epochs:
-            lower: 1
-            upper: 9
-            is_fidelity: true
-
-    searcher:
-        strategy: priorband
-        eta: 3
-
-    max_evaluations_total: 10
-    max_evaluations_per_run: 1
-    post_run_summary: true
-    ignore_errors: false
-    """
-    yaml_file = base_dir / "example_neps_config.yaml"
-    if not yaml_file.is_file() and is_main_process():
-        os.makedirs(base_dir, exist_ok=True)
-        Path(yaml_file).write_text(yaml_content, encoding="utf-8")
-    return yaml_file
-
-
 def main():
     process_group_key = get_process_group_key()
     print_with_rank(f"{process_group_key=}")
     base_dir = Path.home() / f".cache/neps_debug/{process_group_key}"
 
+    # check whether we reached max evaluations
+    neps_config_file = Path(__file__).parent / "lightning_multigpu_workers.yaml"
+    with neps_config_file.open("r", encoding="utf-8") as fh:
+        neps_config = yaml.load(fh, Loader=yaml.SafeLoader)
+    max_eval_total = neps_config[MAX_EVALUATIONS_TOTAL]
+    try:
+        results, pending_configs = neps.status(base_dir)
+        num_results = len(results)
+    except FileNotFoundError:
+        num_results = 0
+    if num_results >= max_eval_total:
+        print_with_rank(f"Reached max evaluations: {num_results}/{max_eval_total}")
+        print_with_rank(f"Result directory: {base_dir}")
+        sys.exit(1)  # exitcode 1 tells bash to not start another run
+
     if is_main_process():
         print_with_rank(f"Main NEPS worker pid={os.getpid()}")
-        neps_config_file = ensure_neps_config(base_dir)
-        with neps_config_file.open("r", encoding="utf-8") as fh:
-            neps_config = yaml.load(fh, Loader=yaml.SafeLoader)
-        max_eval_total = neps_config[MAX_EVALUATIONS_TOTAL]
-        try:
-            results, pending_configs = neps.status(base_dir)
-            num_results = len(results)
-        except FileNotFoundError:
-            num_results = 0
-        if num_results >= max_eval_total:
-            print_with_rank(f"Reached max evaluations: {num_results}/{max_eval_total}")
-            print_with_rank(f"Result directory: {base_dir}")
-            sys.exit(1)  # exitcode 1 tells bash to not start another run
         run_neps_main_debug(base_dir, neps_config_file)
         print_with_rank(f"Result directory: {base_dir}")
         sys.exit(0)
