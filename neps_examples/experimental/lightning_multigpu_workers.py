@@ -20,7 +20,7 @@ Usage:
         sleep 5
         echo
     done
-    # test sbatch script usage
+    # test sbatch script usage. adopt the file to your environment first.
     sbatch lightning_multigpu_workers.sh
 
 problem in running neps with one worker having multiple gpus:
