@@ -1,0 +1,25 @@
+pipeline_space:
+    max_epochs_for_scheduler: 9
+    learning_rate:
+        lower: 1e-5
+        upper: 1e-3
+        log: true
+        default: 1e-4
+    weight_decay:
+        lower: 1e-5
+        upper: 2e-1
+        log: true
+        default: 1e-2
+    epochs:
+        lower: 1
+        upper: 9
+        is_fidelity: true
+
+searcher:
+    strategy: priorband
+    eta: 3
+
+max_evaluations_total: 10
+max_evaluations_per_run: 1
+post_run_summary: true
+ignore_errors: false
