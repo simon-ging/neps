@@ -5,7 +5,7 @@ Usage:
     conda create -n nepstest python=3.10 -y
     conda activate nepstest
     pip install torch torchvision lightning neps neural-pipeline-search
-    # get a slurm job with 2 gpus (or change NUM_GPUS below)
+    # get a slurm job with 2 gpus (or change NUM_GPUS below) in foreground
     # ---------- do one eval
     python lightning_multigpu_workers.py
     # ---------- do evals until max_evaluations_total is reached, or an uncaught error happens
@@ -20,6 +20,8 @@ Usage:
         sleep 5
         echo
     done
+    # test sbatch script usage
+    sbatch lightning_multigpu_workers.sh
 
 problem in running neps with one worker having multiple gpus:
 1. neps.run samples a config, then calls the training script.
@@ -145,9 +147,9 @@ def main():
         # assert info_file.is_file(), f"Info file not found: {info_file} on rank {rank}/{world_size}"
         with info_file.open("r", encoding="utf-8") as fh:
             rank0_info = json.load(fh)
-        train_config, output_dir, checkpoint_dir = rank0_info
-        print_with_rank(f"========================================== Starting in {output_dir}")
-        train_loss = train_model_debug(train_config, output_dir, checkpoint_dir)
+        train_config, checkpoint_dir, do_resume = rank0_info
+        print_with_rank(f"========================================== Starting in {checkpoint_dir}")
+        train_loss = train_model_debug(train_config, checkpoint_dir, do_resume)
         # to kill or not to kill this rank 1+ process?
         # ending it here will freeze the next run. so it seems lightning can reuse the
         # existing process group when we create a new trainer with same number of devices.
@@ -189,6 +191,9 @@ def run_pipeline_main_debug(
     wd = neps_config.pop("weight_decay")
     train_config = {"lr": lr, "wd": wd}
     config_name = pipeline_directory.name  # e.g. config_34_1
+    # pre-download dataset to avoid multiple processes downloading the same file and breaking
+    _train_dataset = MNIST(os.getcwd(), download=True, transform=ToTensor())
+    _val_dataset = MNIST(os.getcwd(), download=True, train=False, transform=ToTensor())
     print(f"========================================== MAIN starting in {output_dir}")
     rank0_info_file = pipeline_directory.parent.parent / f"rank0_info.json"
     assert not rank0_info_file.is_file(), f"Info file already exists: {rank0_info_file}"
@@ -205,8 +210,8 @@ def train_model_debug(train_config, output_dir, checkpoint_dir):
     # in usual setting, output_dir and checkpoint_dir would be used to resume training
     # when using epochs as fidelity.
     autoencoder = LitAutoEncoder(lr=train_config["lr"], wd=train_config["wd"])
-    train_dataset = MNIST(os.getcwd(), download=True, transform=ToTensor())
-    val_dataset = MNIST(os.getcwd(), download=True, train=False, transform=ToTensor())
+    train_dataset = MNIST(os.getcwd(), download=False, transform=ToTensor())
+    val_dataset = MNIST(os.getcwd(), download=False, train=False, transform=ToTensor())
     train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True, num_workers=2)
     val_loader = DataLoader(val_dataset, batch_size=8, shuffle=False, num_workers=2)
     trainer = L.Trainer(
@@ -285,16 +290,28 @@ def print_with_rank(*args, **kwargs):
     print(f"Rank {rank:>2d}/{world_size}:", *args, **kwargs)
 
 
+def get_world_size() -> int:
+    if is_slurm_sbatch():
+        return int(os.environ["SLURM_NTASKS"])
+    return int(os.environ.get("WORLD_SIZE", 1))
+
+
 def get_rank() -> int:
-    if "RANK" in os.environ:  # global rank across all nodes
+    """
+    In some cases LOCAL_RANK is set, but RANK is unset. Use LOCAL_RANK in that case.
+    RANK: global rank of the process in the distributed setting, across all nodes.
+    LOCAL_RANK: rank on this machine / node.
+
+    in slurm sbatch scripts, we need to use the slurm env variables instead.
+    """
+    if is_slurm_sbatch():
+        return int(os.environ["SLURM_PROCID"])
+
+    if "RANK" in os.environ:
         rank = int(os.environ["RANK"])
-    else:  # local rank on the node
+    else:
         rank = int(os.environ.get("LOCAL_RANK", 0))
     return rank
-
-
-def get_world_size() -> int:
-    return int(os.environ.get("WORLD_SIZE", 1))
 
 
 def is_main_process():
@@ -304,6 +321,18 @@ def is_main_process():
 
 def get_world_info() -> tuple[int, int]:
     return get_rank(), get_world_size()
+
+
+def is_slurm_sbatch():
+    slurm_job_name = os.environ.get("SLURM_JOB_NAME")
+    if slurm_job_name is None:
+        # not in slurm job
+        return False
+    if slurm_job_name == "bash":
+        # in foreground slurm job
+        return False
+    # in background slurm job
+    return True
 
 
 if __name__ == "__main__":
