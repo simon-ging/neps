@@ -1,15 +1,17 @@
 """
+Tested environment: ubuntu, latest torch as of 2024-08, slurm cluster, 2xRTX2080Ti
+
 Usage:
     conda create -n nepstest python=3.10 -y
     conda activate nepstest
     pip install torch torchvision lightning neps neural-pipeline-search
     # get a slurm job with 2 gpus (or change NUM_GPUS below)
     # ---------- do one eval
-    python debug_hpo_neps_multilit.py
+    python lightning_multigpu_workers.py
     # ---------- do evals until max_evaluations_total is reached, or an uncaught error happens
     while true; do
         echo -e "\n ----------- new config\n"
-        python -m crx.devcli.debug_hpo_neps_multilit
+        python lightning_multigpu_workers.py
         RETCODE=$?
         if [ $RETCODE -ne 0 ]; then
             echo -e "\n---------- exiting with code $RETCODE\n"
