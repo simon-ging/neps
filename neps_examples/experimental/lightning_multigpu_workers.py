@@ -190,7 +190,6 @@ def run_pipeline_main_debug(
     train_config = {"lr": lr, "wd": wd}
     config_name = pipeline_directory.name  # e.g. config_34_1
     print(f"========================================== MAIN starting in {output_dir}")
-    # neps_debug/11754531_null/root/results/config_1_0
     rank0_info_file = pipeline_directory.parent.parent / f"rank0_info.json"
     assert not rank0_info_file.is_file(), f"Info file already exists: {rank0_info_file}"
     rank0_info = (train_config, output_dir, checkpoint_dir)
@@ -201,19 +200,10 @@ def run_pipeline_main_debug(
     time.sleep(1)
     return train_loss.item()
 
-    # # so now we DO NOT have a process group yet because we haven't called trainer.fit
-    # # at this point dist process group exists so we could use that to broadcast the config_num
-    # rank0_info = (train_config, output_dir, checkpoint_dir)
-    # dump_json(rank0_info, pipeline_directory / f"rank0_info_{config_num}.json")
-    # config_num_tensor = torch.tensor(config_num, dtype=torch.int64).to(torch.device("cuda:0"))
-    # dist.barrier()
-    # dist.broadcast(config_num_tensor, src=0)
-    #
-    # # ------------------------ the training run
-    # # return debug_run_training_multigpu(train_config, output_dir, checkpoint_dir, config_num)
-
 
 def train_model_debug(train_config, output_dir, checkpoint_dir):
+    # in usual setting, output_dir and checkpoint_dir would be used to resume training
+    # when using epochs as fidelity.
     autoencoder = LitAutoEncoder(lr=train_config["lr"], wd=train_config["wd"])
     train_dataset = MNIST(os.getcwd(), download=True, transform=ToTensor())
     val_dataset = MNIST(os.getcwd(), download=True, train=False, transform=ToTensor())
@@ -230,7 +220,6 @@ def train_model_debug(train_config, output_dir, checkpoint_dir):
     return train_loss
 
 
-# define the LightningModule
 class LitAutoEncoder(L.LightningModule):
     def __init__(self, lr=1e-3, wd=1e-5):
         super().__init__()
@@ -288,6 +277,8 @@ def get_process_group_key():
 
 
 # ------------------------ copy paste distributed utils
+
+
 def print_with_rank(*args, **kwargs):
     rank = get_rank()
     world_size = get_world_size()
