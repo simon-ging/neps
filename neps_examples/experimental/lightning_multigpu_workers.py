@@ -57,6 +57,7 @@ import time
 from pathlib import Path
 
 import lightning as L
+import yaml
 from torch import optim, nn
 from torch.utils.data import DataLoader
 from torchvision.datasets import MNIST
@@ -65,7 +66,6 @@ from torchvision.transforms import ToTensor
 import neps
 from neps.utils.common import get_initial_directory
 from neps.utils.run_args import MAX_EVALUATIONS_TOTAL
-from packg.iotools import load_yaml
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -116,8 +116,10 @@ def main():
     base_dir = Path.home() / f".cache/neps_debug/{process_group_key}"
 
     if is_main_process():
+        print_with_rank(f"Main NEPS worker pid={os.getpid()}")
         neps_config_file = ensure_neps_config(base_dir)
-        neps_config = load_yaml(neps_config_file)
+        with neps_config_file.open("r", encoding="utf-8") as fh:
+            neps_config = yaml.load(fh, Loader=yaml.SafeLoader)
         max_eval_total = neps_config[MAX_EVALUATIONS_TOTAL]
         try:
             results, pending_configs = neps.status(base_dir)
@@ -126,9 +128,10 @@ def main():
             num_results = 0
         if num_results >= max_eval_total:
             print_with_rank(f"Reached max evaluations: {num_results}/{max_eval_total}")
+            print_with_rank(f"Result directory: {base_dir}")
             sys.exit(1)  # exitcode 1 tells bash to not start another run
-        print_with_rank(f"Main NEPS worker pid={os.getpid()}")
         run_neps_main_debug(base_dir, neps_config_file)
+        print_with_rank(f"Result directory: {base_dir}")
         sys.exit(0)
 
     print_with_rank(f"Non-NEPS worker pid={os.getpid()}")
@@ -160,7 +163,6 @@ def run_neps_main_debug(neps_root_dir, neps_config_file):
         run_args=Path(neps_config_file).as_posix(),
         root_directory=Path(neps_root_dir).as_posix(),
     )
-    print(f"Check root directory for the CSV results: {neps_root_dir}")
 
 
 def run_pipeline_main_debug(
@@ -233,7 +235,7 @@ class LitAutoEncoder(L.LightningModule):
     def __init__(self, lr=1e-3, wd=1e-5):
         super().__init__()
         self.encoder = nn.Sequential(nn.Linear(28 * 28, 64), nn.ReLU(), nn.Linear(64, 3))
-        self.decoder =  nn.Sequential(nn.Linear(3, 64), nn.ReLU(), nn.Linear(64, 28 * 28))
+        self.decoder = nn.Sequential(nn.Linear(3, 64), nn.ReLU(), nn.Linear(64, 28 * 28))
         self.lr = lr
         self.wd = wd
 
