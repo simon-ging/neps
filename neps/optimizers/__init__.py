@@ -46,4 +46,5 @@ SearcherMapping: Mapping[str, Callable[..., BaseOptimizer]] = {
     "priorband": PriorBand,
     "mobster": MOBSTER,
     "mf_ei_bo": MFEIBO,
+    "priorband_asha": PriorBandAsha,
 }
