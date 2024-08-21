@@ -525,7 +525,8 @@ def _launch_runtime(  # noqa: PLR0913
         on_error=(
             OnErrorPossibilities.IGNORE
             if ignore_errors
-            else OnErrorPossibilities.RAISE_ANY_ERROR
+            # else OnErrorPossibilities.RAISE_ANY_ERROR  # master branch
+            else OnErrorPossibilities.RAISE_WORKER_ERROR
         ),
         default_report_values=DefaultReportValues(
             loss_value_on_error=loss_value_on_error,

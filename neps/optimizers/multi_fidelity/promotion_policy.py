@@ -111,6 +111,15 @@ class AsyncPromotionPolicy(PromotionPolicy):
                 continue
             # if less than eta configurations seen, no promotions occur as top_k=0
             top_k = len(self.rung_members_performance[rung]) // self.eta
+
+            # ---------- CHANGE: Replace "error" strings with np.inf and convert to float
+            # turn numpy array dtype 'O' back to float
+            if len(self.rung_members_performance[rung]) > 0:
+                self.rung_members_performance[rung][
+                    self.rung_members_performance[rung] == "error"] = np.inf
+                self.rung_members_performance[rung] = self.rung_members_performance[rung].astype(float)
+            # ---------- END CHANGE
+
             _ordered_idx = np.argsort(self.rung_members_performance[rung])
             self.rung_promotions[rung] = np.array(self.rung_members[rung])[_ordered_idx][
                 :top_k
