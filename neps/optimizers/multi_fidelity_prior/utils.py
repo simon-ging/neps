@@ -3,6 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 import scipy
+from packg import format_exception
 
 from neps.search_spaces import (
     CategoricalParameter,
@@ -150,17 +151,23 @@ def compute_scores(
 
 def calc_total_resources_spent(observed_configs: pd.DataFrame, rung_map: dict) -> float:
     # collects a list of fidelities/rungs reached by configurations that are not pending
-    rungs_used = [
-        observed_configs.at[i, "rung"]
-        for i in range(len(observed_configs))
+    rungs_used = []
+    for i in range(len(observed_configs)):
+        try:
+            perf = observed_configs.at[i, "perf"]
+        except KeyError as e:
+            print(
+                f"\nERROR in calc_total_resources_spent: {format_exception(e)} when "
+                f"trying to get perf at index {i} in dataframe {observed_configs}\n")
+            continue
+        if perf == "error":
+            continue
+        if np.isnan(perf):
+            continue
+        rung = observed_configs.at[i, "rung"]
+        rungs_used.append(rung)
 
-        # ---------- CHANGE: Ignore members with "error" string value
-        if not observed_configs.at[i, "perf"] == "error"
-            and not np.isnan(observed_configs.at[i, "perf"])
-        # REMOVED: if not np.isnan(observed_configs.at[i, "perf"])
-        # ---------- END CHANGE
 
-    ]
     total_resources = sum(rung_map[r] for r in rungs_used)
     return total_resources
 
