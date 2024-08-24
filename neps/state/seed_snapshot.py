@@ -74,7 +74,10 @@ class SeedSnapshot:
                 torch.random.set_rng_state(self.torch_rng)
 
             if self.torch_cuda_rng is not None and torch.cuda.is_available():
-                torch.cuda.set_rng_state_all(self.torch_cuda_rng)
+                try:
+                    torch.cuda.set_rng_state_all(self.torch_cuda_rng)
+                except IndexError:
+                    print(f"ERROR: Reloading with different number of GPUs. Cannot seed.")
 
     def __eq__(self, other: Any, /) -> bool:  # noqa: PLR0911
         if not isinstance(other, SeedSnapshot):
