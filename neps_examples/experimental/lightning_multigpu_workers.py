@@ -72,7 +72,7 @@ from neps.utils.run_args import MAX_EVALUATIONS_TOTAL
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-NUM_GPUS = 2
+NUM_GPUS = 8
 
 
 def main():
